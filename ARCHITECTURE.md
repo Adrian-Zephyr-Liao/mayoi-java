@@ -73,7 +73,8 @@ Release automation builds self-contained tools for macOS, Linux and Windows
 and publishes SHA-256 checksums. Users install a prebuilt tool on PATH or set
 the plugin's `helperPath`. Source builds are an alternative for contributors.
 The plugin repository contains no machine-specific binaries or private project
-paths. Native Mayoi changes are maintained separately for upstream review.
+paths. The native resolver contract is implemented upstream in
+[Mayoi PR #135](https://github.com/sorrycc/Mayoi/pull/135).
 
 ## Acceptance
 
@@ -96,5 +97,6 @@ also resolves all three through F12 and exposes the setup check command. Java is
 a direct child of Mayoi, with no Python or helper process left running. The
 large workspace uses a 4 GiB heap limit (about 1.54 GiB used at inspection).
 
-Runtime acceptance on Linux, Windows, Gradle and SSH is pending. The native
-Mayoi branch must land before plugin 0.3 can target normal upstream releases.
+Runtime acceptance on Linux, Windows, Gradle and SSH is pending. Native resolver
+support is merged into Mayoi main in PR #135; plugin 0.3 requires an editor build
+containing that change.

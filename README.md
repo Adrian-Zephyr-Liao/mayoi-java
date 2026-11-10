@@ -8,10 +8,11 @@ Mayoi also consumes JDT LS diagnostics, hover and completion.
 ## Compatibility
 
 **0.3 is a development version.** It requires Mayoi's native language server
-resolver from [this branch](https://github.com/Adrian-Zephyr-Liao/Mayoi/tree/feat/native-language-servers).
-That editor change has not been merged upstream. Existing Mayoi releases without
-`contributes.languageServers[].resolve` cannot run this version. Use the plugin's
-`main` branch (0.2, Python-based) with the previous editor API until support ships.
+resolver, merged into [Mayoi main](https://github.com/sorrycc/Mayoi/tree/main) in
+[PR #135](https://github.com/sorrycc/Mayoi/pull/135). Use an editor build containing
+that change. Existing Mayoi releases without `contributes.languageServers[].resolve`
+cannot run this version. The previous Python-based implementation is available at
+[`50768f2`](https://github.com/Adrian-Zephyr-Liao/mayoi-java/tree/50768f2).
 
 Runtime requirements are Mayoi, a prebuilt `mayoi-java` tool, **JDK 25+** and an
 Eclipse JDT LS distribution. Python, Node and a Go compiler are unnecessary for
@@ -31,10 +32,10 @@ Download the appropriate tool archive and `SHA256SUMS` from the
 Development archives can be built with `go run ./tools/release 0.3.0-dev`.
 macOS/Linux archives contain `mayoi-java`; Windows contains `mayoi-java.exe`.
 
-Install the plugin from this development branch while testing:
+Install the plugin from `main` while testing:
 
 ```sh
-git clone --branch feat/native-java-plugin https://github.com/Adrian-Zephyr-Liao/mayoi-java.git
+git clone --branch main https://github.com/Adrian-Zephyr-Liao/mayoi-java.git
 mayoi plugin dev /absolute/path/to/mayoi-java
 mayoi-java setup
 ```
@@ -158,7 +159,7 @@ Windows amd64 and writes archives plus checksums under `dist/`. GitHub Actions
 runs host tests on all three OS families and publishes archives when a `v*` tag
 is pushed. A cross-build is not a runtime acceptance test on those platforms.
 
-The native Mayoi branch includes opt-in `TestResolvedLanguageServerIntegration`.
+Mayoi's source includes opt-in `TestResolvedLanguageServerIntegration`.
 Set `MAYOI_LSP_HELPER`, `MAYOI_LSP_ROOT` and `MAYOI_LSP_CASES` (a JSON array of
 `{Path, Line, Column, WantPath, WantLine}`, relative paths and one-based positions).
 For JDT LS also set `MAYOI_LSP_READY_METHOD=language/status` and

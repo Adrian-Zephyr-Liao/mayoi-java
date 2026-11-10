@@ -8,7 +8,7 @@
 - Enable normal auto-build and annotation processing by default; keep legacy compatibility per workspace.
 - Build macOS, Linux and Windows tools with SHA-256 checksums.
 
-Requires the Mayoi `feat/native-language-servers` changes until upstream support ships.
+Requires a Mayoi build containing the native resolver from upstream PR #135.
 
 ## 0.2.0
 
