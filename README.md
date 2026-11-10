@@ -2,141 +2,180 @@
 
 Java source navigation for [Mayoi](https://github.com/sorrycc/Mayoi), powered by
 [Eclipse JDT Language Server](https://github.com/eclipse-jdtls/eclipse.jdt.ls).
-Open a Java project, place the caret on a class or method, and press **F12** to
-jump to its definition in project source. Mayoi also consumes JDT LS hover,
-completion, and diagnostics through its existing LSP client.
+Press **F12** on a project class, method or Lombok getter to jump to its source.
+Mayoi also consumes JDT LS diagnostics, hover and completion.
+
+## Compatibility
+
+**0.3 is a development version.** It requires Mayoi's native language server
+resolver from [this branch](https://github.com/Adrian-Zephyr-Liao/Mayoi/tree/feat/native-language-servers).
+That editor change has not been merged upstream. Existing Mayoi releases without
+`contributes.languageServers[].resolve` cannot run this version. Use the plugin's
+`main` branch (0.2, Python-based) with the previous editor API until support ships.
+
+Runtime requirements are Mayoi, a prebuilt `mayoi-java` tool, **JDK 25+** and an
+Eclipse JDT LS distribution. Python, Node and a Go compiler are unnecessary for
+users. Go 1.23+ is needed only when building the tool from source.
 
 ## Install
 
-Requires a Mayoi build with `contributes.languageServers`, Python 3.9+, JDK 25+
-for the language server, and an installed JDT LS distribution. The initial
-version targets local projects on macOS and Linux.
-
-On macOS:
+Install JDT LS and its modern runtime JDK. For Homebrew users:
 
 ```sh
-brew install python jdtls
-mayoi plugin install Adrian-Zephyr-Liao/mayoi-java
-python3 ~/.mayoi/plugins/mayoi-java/server.py --install-lombok
+brew install jdtls
 ```
 
-The launcher detects Homebrew's JDK, even when the default `java` and
-`JAVA_HOME` still point to Java 8. It does not change your shell configuration,
-project build settings, or system Java selection. The JDK running JDT LS and
-the project's source/target level are separate; existing Java 8 Maven projects
-can keep their compiler settings.
+Download the appropriate tool archive and `SHA256SUMS` from the
+[releases page](https://github.com/Adrian-Zephyr-Liao/mayoi-java/releases) once
+0.3 is published, verify the checksum, and put the executable on PATH.
+Development archives can be built with `go run ./tools/release 0.3.0-dev`.
+macOS/Linux archives contain `mayoi-java`; Windows contains `mayoi-java.exe`.
 
-Open the folder containing the root `pom.xml`, `build.gradle`, or
-`build.gradle.kts` in Mayoi. For a Maven reactor, open its parent folder so JDT LS
-can import all modules. The first import needs time and may download build
-dependencies, just as an IDE import does. Retry F12 after indexing completes.
+Install the plugin from this development branch while testing:
 
-For a non-Homebrew installation, download JDT LS from its official project,
-then configure the absolute distribution and JDK paths below.
+```sh
+git clone --branch feat/native-java-plugin https://github.com/Adrian-Zephyr-Liao/mayoi-java.git
+mayoi plugin dev /absolute/path/to/mayoi-java
+mayoi-java setup
+```
 
-## Configure
-
-Optional global configuration lives at
-`~/.mayoi/storage/mayoi-java/config.json`. When `MAYOI_DATA_DIR` is set, replace
-`~/.mayoi` with that directory. Create the parent directories if necessary.
+A GUI app with a minimal PATH can use the plugin's `helperPath` setting, for example:
 
 ```json
 {
-  "javaHome": "/absolute/path/to/jdk-25/Contents/Home",
-  "jdtlsHome": "/absolute/path/to/jdt-language-server",
-  "maxHeapMiB": 2048,
-  "workspaces": {
-    "/absolute/path/to/large-workspace": { "maxHeapMiB": 4096 }
+  "plugins": {
+    "mayoi-java": { "helperPath": "/absolute/path/to/mayoi-java" }
   }
 }
 ```
 
-`jdtlsHome` contains `plugins/` and the appropriate `config_mac`,
-`config_mac_arm`, `config_linux`, or `config_linux_arm` directory. Homebrew users
-normally need no configuration. `cacheDir` can optionally move the index cache.
-Configuration is read at server startup; restart Mayoi after changing it.
+`setup` downloads a separately versioned Lombok agent and checks the local JDK
+and JDT LS installation. It verifies Lombok 1.18.48 against a pinned SHA-256
+checksum before installing it in the Mayoi profile. JDK/JDT LS installation
+remains explicit; server startup performs no downloads. **Plugins → Java: Check
+Setup** shows the resolved launch configuration. The adjacent install command
+installs Lombok and checks setup from within the editor.
 
-The plugin defaults to source navigation mode: automatic workspace builds and
-annotation processor execution are disabled inside the language server. This
-avoids running project processors that require an older compiler inside the
-modern language server JVM. Your Maven/Gradle builds keep their own settings.
-Diagnostics still validate open source files, and Lombok uses the separately
-installed agent. Projects that need other generated sources can run their
-normal build first. Set `autoBuild` and `annotationProcessing` to `true` to
-opt into the language server's build/processor behavior.
+Open the root Maven/Gradle project, or a workspace containing immediate child
+projects. Initial import may download project dependencies and needs time before
+F12 is ready. Grouped workspaces import each canonical project once, with source
+locations mapped back to the workspace aliases so existing tabs are reused.
 
-`--install-lombok` downloads Lombok 1.18.48 from Maven Central and verifies its
-pinned SHA-256 checksum. It is stored in the Mayoi profile, separately from your
-project dependencies. `lombokJar` can specify a different compatible agent using
-an absolute path. Use the same `MAYOI_DATA_DIR` for installation and Mayoi.
+## Configure
 
-For a grouped workspace, the plugin imports immediate child projects once,
-resolves their symlinks for JDT LS, and maps definitions/diagnostics back to the
-workspace paths. Navigation reuses the source tabs opened through those paths.
+The JDK running JDT LS is separate from the project's source/target level.
+Java 8 projects can keep their build settings and shell `JAVA_HOME`.
+The tool detects modern Homebrew JDKs, `JAVA_HOME`, PATH and macOS `java_home`.
+Other installations should specify absolute `javaHome` and `jdtlsHome` paths.
 
-Environment overrides take precedence over the JSON file:
+Optional configuration lives in `~/.mayoi/storage/mayoi-java/config.json`.
+When `MAYOI_DATA_DIR` is set, use that profile directory instead of `~/.mayoi`.
+Use the same profile for setup and the editor.
 
-| Variable | Configuration key |
+```json
+{
+  "javaHome": "/absolute/path/to/jdk-25",
+  "jdtlsHome": "/absolute/path/to/jdt-language-server",
+  "maxHeapMiB": 2048,
+  "workspaces": {
+    "/absolute/path/to/legacy-workspace": {
+      "maxHeapMiB": 4096,
+      "autoBuild": false,
+      "annotationProcessing": false
+    }
+  }
+}
+```
+
+`jdtlsHome` contains `plugins/` and `config_mac`, `config_mac_arm`,
+`config_linux`, `config_linux_arm` or `config_win` for the host platform.
+`cacheDir` relocates private indexes; `lombokJar` selects an existing compatible
+agent. All configured paths must be absolute. Restart Mayoi after changes.
+
+Normal defaults enable auto-build and annotation processing. Older projects with
+processors incompatible with the language server JDK can disable them in a
+workspace override, as above. Those preferences live in the private server cache;
+they do not change source checkout files or Maven/Gradle builds. Such projects
+may need their normal build to produce sources from other processors.
+
+Precedence, lowest to highest: defaults → profile → matching canonical workspace
+override → explicitly stored Mayoi plugin settings → environment variables.
+The editor exposes `javaHome`, `jdtlsHome` and `maxHeapMiB`; compatibility options
+stay in the profile's workspace configuration.
+
+| Environment variable | Configuration key |
 | --- | --- |
 | `MAYOI_JAVA_HOME` | `javaHome` |
 | `MAYOI_JAVA_JDTLS_HOME` | `jdtlsHome` |
 | `MAYOI_JAVA_CACHE_DIR` | `cacheDir` |
 | `MAYOI_JAVA_MAX_HEAP_MIB` | `maxHeapMiB` |
 
-For GUI launches, use the JSON file when shell environment variables are not
-inherited. Mayoi must be able to find `python3` in its process PATH.
+## Architecture and cost
 
-## Troubleshoot
+The TypeScript plugin declares settings and setup commands. Its Go tool prepares
+a launch description and exits. Mayoi starts Java directly and owns all LSP
+traffic, configuration requests and URI mappings. There is no resident proxy.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the native resolver contract.
 
-Run this from the Java project directory to check dependencies and show the
-exact JVM command without starting the server or creating its cache:
+One JVM runs per open workspace using Java. Its initial heap is 128 MiB, with a
+2 GiB maximum by default; native JVM memory is additional. Large projects may
+need 4 GiB. Import consumes CPU, disk and build dependency downloads; persistent
+indexes are separated by canonical workspace path. Identity URI mappings are
+skipped by the native client. Version 0.3 creates `data-v3-standard` or
+`data-v3-no-apt` indexes to isolate old sessions and processor modes. Old caches
+are retained and may be removed manually after closing the editor.
+
+## Troubleshoot and migrate
 
 ```sh
-python3 ~/.mayoi/plugins/mayoi-java/server.py --check
+mayoi-java doctor --root /absolute/workspace
+mayoi-java install-lombok
 ```
 
-Use the corresponding `MAYOI_DATA_DIR` path for a development profile.
-Server startup errors appear in Mayoi's **Plugins → Show Plugin Log**.
-JDT LS logs live in the reported data directory at `.metadata/.log`.
+`doctor` prepares the private configuration and prints launch JSON without
+starting Java. Errors appear in **Plugins → Show Plugin Log**. JDT LS writes
+`<data directory>/.metadata/.log`; its data directory follows `-data` in the
+launch description. The old proxy's `status.json` is no longer produced.
 
-The plugin starts one JVM for each folder Mayoi opens a Java file in. The
-initial Java heap is 128 MiB and the maximum is 2048 MiB by default; JVM native
-memory is additional. Project import/indexing consumes CPU and disk, and the
-index persists under `storage/mayoi-java/cache`. Full canonical project paths
-separate caches for projects and Git worktrees with identical names.
+0.2 profile files remain readable. If you previously put `autoBuild: false` or
+`annotationProcessing: false` at the top level, move them into the relevant
+workspace override to retain normal behavior elsewhere. Install the native
+editor build and tool, update the plugin, then restart Mayoi. No project file
+changes or global JDK switch are required.
 
-Large workspaces can use the per-workspace `maxHeapMiB` override shown above.
-Version 0.2 creates a fresh `data-v2` index to avoid reusing incomplete indexes
-from version 0.1. The old cache is left in place. `status.json` beside the data
-directory records server readiness and the last 20 definition results (paths,
-locations, and latency; no source text), which helps diagnose import failures.
-
-## Current boundaries
-
-- F12 into project source is the first release's acceptance target. Maven
-  module navigation is covered by the integration test. Gradle import is
-  enabled through JDT LS but is not yet an acceptance test.
-- Dependency and JDK definitions may use `jdt:` virtual document URIs. Mayoi's
-  current client opens `file:` URIs, so JAR source/decompiled class navigation
-  needs additional editor integration and is not implemented here.
-- SSH projects need the launcher, Python, JDK, and JDT LS installed on the
-  remote host too. This version has not been verified with Mayoi SSH sessions.
-- This uses Mayoi's existing F12 command. It does not add Command-click support.
-
-## Develop and test
+## Develop and validate
 
 ```sh
+go test -race ./...
+go vet ./...
+go build -o dist/mayoi-java .
+go run ./tools/release 0.3.0-dev
 mayoi plugin dev /absolute/path/to/mayoi-java
-python3 -m unittest discover -s tests -v
-python3 tests/integration.py
 ```
 
-The integration test starts the installed JDT LS through the actual plugin
-manifest, imports a symlinked two-module Maven project targeting Java 8, and
-checks class and method definition locations across modules. If a Lombok agent
-is installed in the selected profile, it also checks a generated getter. It
-uses JDT LS's Maven importer and allows up to three minutes for import. It does
-not operate the Mayoi UI.
+The release builder cross-compiles macOS arm64/amd64, Linux arm64/amd64 and
+Windows amd64 and writes archives plus checksums under `dist/`. GitHub Actions
+runs host tests on all three OS families and publishes archives when a `v*` tag
+is pushed. A cross-build is not a runtime acceptance test on those platforms.
 
-The plugin is MIT licensed. JDT LS is a separate installation with its own
+The native Mayoi branch includes opt-in `TestResolvedLanguageServerIntegration`.
+Set `MAYOI_LSP_HELPER`, `MAYOI_LSP_ROOT` and `MAYOI_LSP_CASES` (a JSON array of
+`{Path, Line, Column, WantPath, WantLine}`, relative paths and one-based positions).
+For JDT LS also set `MAYOI_LSP_READY_METHOD=language/status` and
+`MAYOI_LSP_READY_STATE=Started`. Run:
+
+```sh
+go test ./cmd/mayoi -run '^TestResolvedLanguageServerIntegration$' -count=1 -v
+```
+
+This exercises the real native transport, resolver and path mappings. Local
+acceptance covers a grouped Maven workspace, same-file/cross-module methods and
+a Lombok getter on macOS arm64. Gradle and SSH runtime acceptance are pending.
+For SSH, install the tool, JDK and JDT LS on the remote host and configure paths
+for that host. Windows/Linux runtime verification remains pending locally.
+
+Mayoi currently opens `file:` definitions. JDK/dependency `jdt:` virtual documents
+need additional editor support. This plugin uses F12; Command-click is separate.
+
+MIT licensed. JDT LS is separately installed under its
 [EPL-2.0 license](https://github.com/eclipse-jdtls/eclipse.jdt.ls/blob/main/LICENSE).

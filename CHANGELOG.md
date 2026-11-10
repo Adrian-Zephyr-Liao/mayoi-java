@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 (development)
+
+- Replace the Python launcher and protocol proxy with a prebuilt Go setup tool.
+- Run JDT LS directly through Mayoi's native language server resolver.
+- Add Java setup checks to the Plugins menu.
+- Enable normal auto-build and annotation processing by default; keep legacy compatibility per workspace.
+- Build macOS, Linux and Windows tools with SHA-256 checksums.
+
+Requires the Mayoi `feat/native-language-servers` changes until upstream support ships.
+
 ## 0.2.0
 
 - Preserve workspace paths when navigating through symlinked repositories.
