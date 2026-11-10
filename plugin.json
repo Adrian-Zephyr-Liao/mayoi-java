@@ -1,0 +1,28 @@
+{
+  "name": "mayoi-java",
+  "displayName": "Java",
+  "version": "0.1.0",
+  "description": "Java source navigation with Eclipse JDT Language Server",
+  "author": "Adrian-Zephyr-Liao",
+  "contributes": {
+    "languageServers": [
+      {
+        "id": "mayoi-java.jdtls",
+        "languages": ["java"],
+        "command": "python3",
+        "args": [
+          "-c",
+          "import os,runpy; from pathlib import Path; runpy.run_path(str(Path(os.environ.get('MAYOI_DATA_DIR') or Path.home()/'.mayoi')/'plugins'/'mayoi-java'/'server.py'),run_name='__main__')"
+        ],
+        "initializationOptions": {
+          "settings": {
+            "java": {
+              "configuration": { "updateBuildConfiguration": "automatic" },
+              "import": { "maven": { "enabled": true }, "gradle": { "enabled": true } }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
