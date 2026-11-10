@@ -87,7 +87,7 @@ class Client:
         self.process.stdout.close()
 
 
-def fixture(root):
+def fixture(root, lombok=False):
     files = {
         "pom.xml": """<project xmlns="http://maven.apache.org/POM/4.0.0">
   <modelVersion>4.0.0</modelVersion><groupId>org.mayoi.fixture</groupId>
@@ -124,6 +124,14 @@ public class Main {
 }
 """,
     }
+    if lombok:
+        files["api/pom.xml"] = files["api/pom.xml"].replace("</project>", """  <dependencies><dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId>
+    <version>1.18.38</version><scope>provided</scope></dependency></dependencies>
+</project>""")
+        files["api/src/main/java/demo/Greeting.java"] = files["api/src/main/java/demo/Greeting.java"].replace(
+            '    public static String', '    @lombok.Getter private String name = "demo";\n    public static String')
+        files["app/src/main/java/demo/Main.java"] = files["app/src/main/java/demo/Main.java"].replace(
+            "return Greeting.message();", "return Greeting.message() + new Greeting().getName();")
     for name, text in files.items():
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -139,19 +147,30 @@ def main():
         profile = base / "profile"
         (profile / "plugins").mkdir(parents=True)
         (profile / "plugins/mayoi-java").symlink_to(ROOT, target_is_directory=True)
-        root = base / "java8-reactor"
-        source, target = fixture(root)
         env = {**os.environ, "MAYOI_DATA_DIR": str(profile)}
         # Preserve a configured non-Homebrew installation, but keep test
         # indexes isolated from the user's Mayoi profile.
         real_profile = Path(os.environ.get("MAYOI_DATA_DIR") or Path.home() / ".mayoi")
         config = real_profile / "storage/mayoi-java/config.json"
-        if config.is_file():
+        value = json.loads(config.read_text()) if config.is_file() else {}
+        agents = sorted((real_profile / "storage/mayoi-java/tools").glob("lombok-*.jar"))
+        agent = value.get("lombokJar") or (str(agents[-1]) if agents else None)
+        if agent:
+            value["lombokJar"] = agent
+        if value:
             isolated_config = profile / "storage/mayoi-java/config.json"
             isolated_config.parent.mkdir(parents=True)
-            value = json.loads(config.read_text())
             value.pop("cacheDir", None)
             isolated_config.write_text(json.dumps(value))
+        # Exercise a CPL-style workspace containing a symlink to a reactor.
+        # All returned definitions must keep the alias used by the editor.
+        root = base / "workspace"
+        root.mkdir()
+        canonical = base / "canonical/java8-reactor"
+        fixture(canonical, lombok=bool(agent))
+        (root / "reactor").symlink_to(canonical, target_is_directory=True)
+        source = root / "reactor/app/src/main/java/demo/Main.java"
+        target = root / "reactor/api/src/main/java/demo/Greeting.java"
         env.pop("MAYOI_JAVA_CACHE_DIR", None)
         with (base / "stderr.log").open("w+") as log:
             client = Client([server["command"], *server["args"]], root, env, log)
@@ -182,7 +201,10 @@ def main():
                 }})
                 # Retry while the real Maven import runs. Each definition
                 # request has Mayoi's five-second timeout.
-                for symbol, column, expected_line in (("Greeting", 17, 2), ("message", 26, 3)):
+                cases = [("Greeting", 17, 2), ("message", 26, 4 if agent else 3)]
+                if agent:
+                    cases.append(("getName", 56, 3))
+                for symbol, column, expected_line in cases:
                     deadline = started + 180
                     last = None
                     while time.monotonic() < deadline:

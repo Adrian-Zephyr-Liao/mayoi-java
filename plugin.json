@@ -1,13 +1,13 @@
 {
   "name": "mayoi-java",
   "displayName": "Java",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Java source navigation with Eclipse JDT Language Server",
   "author": "Adrian-Zephyr-Liao",
   "contributes": {
     "languageServers": [
       {
-        "id": "mayoi-java.jdtls",
+        "id": "mayoi-java.jdtls.v2",
         "languages": ["java"],
         "command": "python3",
         "args": [

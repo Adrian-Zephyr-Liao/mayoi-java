@@ -95,12 +95,19 @@ class LauncherTest(unittest.TestCase):
              patch.object(server, "configuration_source", return_value=source):
             plan = server.launch_plan(self.root, {})
             self.assertEqual(plan["command"][0], "/jdk space/bin/java")
-            self.assertIn("-Xmx1024m", plan["command"])
+            self.assertIn("-Xmx2048m", plan["command"])
             self.assertFalse(Path(plan["data"]).exists())
             self.assertFalse(Path(plan["configuration"]).exists())
             for value in (True, 128, "1g", 1024.5, 32769):
                 with self.subTest(value=value), self.assertRaises(server.SetupError):
                     server.launch_plan(self.root, {"maxHeapMiB": value})
+
+    def test_workspace_override_keeps_other_folders_small(self):
+        large = self.root / "large"
+        large.mkdir()
+        self.config({"maxHeapMiB": 2048, "workspaces": {str(large): {"maxHeapMiB": 4096}}})
+        self.assertEqual(server.load_config(large)["maxHeapMiB"], 4096)
+        self.assertEqual(server.load_config(self.root)["maxHeapMiB"], 2048)
 
     def test_manifest_bootstrap_respects_custom_profile_and_spaces(self):
         plugins = server.data_dir() / "plugins"

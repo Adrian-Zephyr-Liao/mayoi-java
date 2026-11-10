@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+- Preserve workspace paths when navigating through symlinked repositories.
+- Import grouped workspace projects once and answer language server configuration requests.
+- Add verified Lombok agent installation and generated method navigation.
+- Default to navigation without automatic builds or legacy annotation processors.
+- Increase the default heap to 2 GiB and allow memory overrides per workspace.
+- Keep readiness and recent definition results in the profile's private index cache.
+
 ## 0.1.0
 
 - Add Java project source definitions through Mayoi's existing F12 command and Eclipse JDT LS.

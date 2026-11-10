@@ -11,10 +11,13 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.request
 
 
 MIN_JAVA = 25
-CONFIG_KEYS = {"javaHome", "jdtlsHome", "cacheDir", "maxHeapMiB"}
+CONFIG_KEYS = {"javaHome", "jdtlsHome", "cacheDir", "maxHeapMiB", "lombokJar", "autoBuild", "annotationProcessing", "workspaces"}
+LOMBOK_VERSION = "1.18.48"
+LOMBOK_SHA256 = "85477a4655ebb2c074a9099cfb749be454449fee564d4282610df1b85f7c508b"
 
 
 class SetupError(Exception):
@@ -25,7 +28,7 @@ def data_dir():
     return Path(os.environ.get("MAYOI_DATA_DIR") or Path.home() / ".mayoi").expanduser().resolve()
 
 
-def load_config():
+def load_config(root=None):
     path = data_dir() / "storage" / "mayoi-java" / "config.json"
     if not path.exists():
         return {}
@@ -35,10 +38,40 @@ def load_config():
         raise SetupError(f"Cannot read {path}: {error}") from error
     if not isinstance(config, dict) or config.keys() - CONFIG_KEYS:
         raise SetupError(f"{path} must be an object with only: {', '.join(sorted(CONFIG_KEYS))}")
-    for key in ("javaHome", "jdtlsHome", "cacheDir"):
+    overrides = config.pop("workspaces", {})
+    if not isinstance(overrides, dict):
+        raise SetupError("workspaces must map absolute workspace paths to configuration objects")
+    selected_root = (root or Path.cwd()).resolve()
+    for workspace, value in overrides.items():
+        if not isinstance(value, dict) or value.keys() - (CONFIG_KEYS - {"workspaces"}):
+            raise SetupError(f"Invalid workspace configuration: {workspace}")
+        if absolute_path(workspace, "workspace") == selected_root:
+            config.update(value)
+    for key in ("javaHome", "jdtlsHome", "cacheDir", "lombokJar"):
         if key in config and (not isinstance(config[key], str) or not config[key].strip()):
             raise SetupError(f"{key} must be a non-empty absolute path in {path}")
+    for key in ("autoBuild", "annotationProcessing"):
+        if key in config and not isinstance(config[key], bool):
+            raise SetupError(f"{key} must be a boolean")
     return config
+
+
+def lombok_path():
+    return data_dir() / "storage/mayoi-java/tools" / f"lombok-{LOMBOK_VERSION}.jar"
+
+
+def install_lombok():
+    url = f"https://repo.maven.apache.org/maven2/org/projectlombok/lombok/{LOMBOK_VERSION}/lombok-{LOMBOK_VERSION}.jar"
+    with urllib.request.urlopen(url, timeout=60) as response:
+        content = response.read(8 * 1024 * 1024)
+    if hashlib.sha256(content).hexdigest() != LOMBOK_SHA256:
+        raise SetupError("Lombok download checksum does not match the pinned release")
+    path = lombok_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".download")
+    temporary.write_bytes(content)
+    temporary.replace(path)
+    print(path)
 
 
 def absolute_path(value, name):
@@ -144,7 +177,7 @@ def launch_plan(root, config):
     folder = cache / workspace_id(root)
     distribution = hashlib.sha256(os.fsencode(home) + source.joinpath("config.ini").read_bytes()).hexdigest()[:12]
     configuration = folder / distribution / "configuration"
-    raw_heap = os.environ.get("MAYOI_JAVA_MAX_HEAP_MIB", config.get("maxHeapMiB", 1024))
+    raw_heap = os.environ.get("MAYOI_JAVA_MAX_HEAP_MIB", config.get("maxHeapMiB", 2048))
     if isinstance(raw_heap, bool) or not re.fullmatch(r"\d+", str(raw_heap)) or not 256 <= int(raw_heap) <= 32768:
         raise SetupError("maxHeapMiB / MAYOI_JAVA_MAX_HEAP_MIB must be an integer from 256 to 32768.")
     command = [
@@ -153,21 +186,33 @@ def launch_plan(root, config):
         "-Dlog.protocol=false", "-Dlog.level=WARNING", "-Xms128m", f"-Xmx{raw_heap}m",
         "--add-modules=ALL-SYSTEM", "--add-opens", "java.base/java.util=ALL-UNNAMED",
         "--add-opens", "java.base/java.lang=ALL-UNNAMED",
-        "-jar", str(jar), "-configuration", str(configuration), "-data", str(folder / "data"),
     ]
+    lombok = config.get("lombokJar")
+    lombok = absolute_path(lombok, "lombokJar") if lombok else lombok_path()
+    if config.get("lombokJar") and not lombok.is_file():
+        raise SetupError(f"Missing Lombok agent: {lombok}")
+    if lombok.is_file():
+        command.append(f"-javaagent:{lombok}")
+    command.extend(["-jar", str(jar), "-configuration", str(configuration), "-data", str(folder / "data-v2")])
     return {
         "workspace": str(root.resolve()), "java": str(java), "jdtls": str(home),
-        "data": str(folder / "data"), "configuration": str(configuration),
+        "data": str(folder / "data-v2"), "configuration": str(configuration),
         "configurationSource": str(source), "command": command,
+        "lombok": str(lombok) if lombok.is_file() else None,
     }
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Print setup and launch command without starting Java")
+    parser.add_argument("--install-lombok", action="store_true", help="Download the pinned Lombok agent from Maven Central")
     args = parser.parse_args()
     try:
-        plan = launch_plan(Path.cwd(), load_config())
+        if args.install_lombok:
+            install_lombok()
+            return 0
+        config = load_config()
+        plan = launch_plan(Path.cwd(), config)
         if args.check:
             print(json.dumps(plan, indent=2, ensure_ascii=False))
             return 0
@@ -182,7 +227,11 @@ def main():
         for key in ("CLIENT_HOST", "CLIENT_PORT", "JDTLS_JVM_ARGS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS"):
             env.pop(key, None)
         env["JAVA_HOME"] = str(Path(plan["java"]).parent.parent)
-        os.execve(plan["java"], plan["command"], env)
+        # Mayoi's declarative server API does not expand workspace paths or
+        # configure server-side requests. Keep that adaptation in the plugin.
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from transport import serve
+        return serve(plan, config, env)
     except (SetupError, OSError) as error:
         print(f"mayoi-java: {error}", file=sys.stderr)
         return 1
