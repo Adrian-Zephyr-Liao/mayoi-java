@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-var version = "0.3.0-dev"
+var version = "v0.3.0"
 
 func run(args []string, in io.Reader, out io.Writer) error {
 	if len(args) == 0 {

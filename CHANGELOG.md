@@ -1,12 +1,13 @@
 # Changelog
 
-## 0.3.0 (development)
+## 0.3.0
 
 - Replace the Python launcher and protocol proxy with a prebuilt Go setup tool.
 - Run JDT LS directly through Mayoi's native language server resolver.
 - Add Java setup checks to the Plugins menu.
 - Enable normal auto-build and annotation processing by default; keep legacy compatibility per workspace.
 - Build macOS, Linux and Windows tools with SHA-256 checksums.
+- Include the plugin manifest and entry point in every platform archive.
 
 Requires a Mayoi build containing the native resolver from upstream PR #135.
 

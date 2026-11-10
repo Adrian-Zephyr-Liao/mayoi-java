@@ -33,6 +33,13 @@ jobs:
           go-version: stable
           cache: false
       - run: go run ./tools/release "$GITHUB_REF_NAME"
-      - run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes dist/*.tar.gz dist/*.zip dist/SHA256SUMS
+      - name: Publish release archives and checksums
+        run: |
+          notes=".github/releases/$GITHUB_REF_NAME.md"
+          if [ -f "$notes" ]; then
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file "$notes" dist/*.tar.gz dist/*.zip dist/SHA256SUMS
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes dist/*.tar.gz dist/*.zip dist/SHA256SUMS
+          fi
         env:
           GH_TOKEN: ${{ github.token }}

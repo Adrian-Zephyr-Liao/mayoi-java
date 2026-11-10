@@ -21,7 +21,7 @@ func archive(path, binary string, windows bool) error {
 		return err
 	}
 	defer f.Close()
-	files := []string{binary, "LICENSE", "README.md"}
+	files := []string{binary, "plugin.json", "main.ts", "LICENSE", "README.md"}
 	if windows {
 		w := zip.NewWriter(f)
 		for _, path := range files {

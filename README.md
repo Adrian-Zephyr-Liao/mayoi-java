@@ -7,7 +7,7 @@ Mayoi also consumes JDT LS diagnostics, hover and completion.
 
 ## Compatibility
 
-**0.3 is a development version.** It requires Mayoi's native language server
+**0.3.0** requires Mayoi's native language server
 resolver, merged into [Mayoi main](https://github.com/sorrycc/Mayoi/tree/main) in
 [PR #135](https://github.com/sorrycc/Mayoi/pull/135). Use an editor build containing
 that change. Existing Mayoi releases without `contributes.languageServers[].resolve`
@@ -26,19 +26,30 @@ Install JDT LS and its modern runtime JDK. For Homebrew users:
 brew install jdtls
 ```
 
-Download the appropriate tool archive and `SHA256SUMS` from the
-[releases page](https://github.com/Adrian-Zephyr-Liao/mayoi-java/releases) once
-0.3 is published, verify the checksum, and put the executable on PATH.
-Development archives can be built with `go run ./tools/release 0.3.0-dev`.
-macOS/Linux archives contain `mayoi-java`; Windows contains `mayoi-java.exe`.
+Download the appropriate archive and `SHA256SUMS` from
+[v0.3.0](https://github.com/Adrian-Zephyr-Liao/mayoi-java/releases/tag/v0.3.0).
+The release contains macOS and Linux arm64/amd64 archives and a Windows amd64
+archive. Each includes the tool, plugin manifest, TypeScript entry point,
+license and this README.
 
-Install the plugin from `main` while testing:
+Verify the downloaded archive before extracting it. On macOS, for example:
 
 ```sh
-git clone --branch main https://github.com/Adrian-Zephyr-Liao/mayoi-java.git
-mayoi plugin dev /absolute/path/to/mayoi-java
+grep '  mayoi-java_v0.3.0_darwin_arm64.tar.gz$' SHA256SUMS | shasum -a 256 -c -
+tar -xzf mayoi-java_v0.3.0_darwin_arm64.tar.gz
+mkdir -p "$HOME/.local/bin"
+install -m 755 mayoi-java "$HOME/.local/bin/mayoi-java"
+export PATH="$HOME/.local/bin:$PATH"
+mayoi plugin install Adrian-Zephyr-Liao/mayoi-java@v0.3.0
 mayoi-java setup
 ```
+
+Use the archive for your OS and architecture. On Linux, use `sha256sum -c`
+instead of `shasum -a 256 -c`. On Windows, verify the selected ZIP's hash with
+PowerShell's `Get-FileHash -Algorithm SHA256`, extract it, and put
+`mayoi-java.exe` on PATH before running the same plugin install and setup
+commands. Add the tool's directory to your shell's PATH for future terminals.
+The release page includes direct links to every archive and its checksums.
 
 A GUI app with a minimal PATH can use the plugin's `helperPath` setting, for example:
 
@@ -150,7 +161,7 @@ changes or global JDK switch are required.
 go test -race ./...
 go vet ./...
 go build -o dist/mayoi-java .
-go run ./tools/release 0.3.0-dev
+go run ./tools/release v0.3.0
 mayoi plugin dev /absolute/path/to/mayoi-java
 ```
 
